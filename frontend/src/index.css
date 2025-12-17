@@ -154,6 +154,20 @@ body {
   border-radius: 4px;
 }
 
+.code-textarea {
+  flex: 1;
+  width: 100%;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: none;
+  padding: 16px;
+  font-family: Menlo, Monaco, "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
 /* Terminal */
 .terminal-container {
   display: flex;
@@ -201,6 +215,19 @@ body {
   flex: 1;
   padding: 8px;
   overflow: hidden;
+}
+
+.terminal-output {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  font-family: Menlo, Monaco, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.terminal-line {
+  color: #d4d4d4;
 }
 
 /* Scrollbar styling for dark theme */
