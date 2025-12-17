@@ -27,7 +27,21 @@
  */
 
 import './index.css';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
 
-console.log(
-  '👋 This message is being logged by "renderer.js", included via webpack',
+console.log('Voice-Controlled Claude Code Assistant - Renderer Starting');
+
+// Mount React app
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Root element not found');
+}
+
+const root = createRoot(container);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );

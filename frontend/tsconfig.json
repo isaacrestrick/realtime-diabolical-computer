@@ -11,6 +11,8 @@
     "outDir": "dist",
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "lib": ["ES6", "DOM"],
     "paths": {
       "*": ["node_modules/*"]
     }
