@@ -8,4 +8,5 @@ dependencies = [
     "fastapi>=0.124.4",
     "openai-agents[voice]>=0.6.3",
     "uvicorn[standard]>=0.38.0",
+    "websockets>=14.1",
 ]
