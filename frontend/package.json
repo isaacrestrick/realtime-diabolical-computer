@@ -1,53 +1,32 @@
 {
   "name": "frontend",
-  "productName": "frontend",
-  "version": "1.0.0",
-  "description": "My Electron application description",
-  "main": ".webpack/main",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
-  },
-  "keywords": [],
-  "author": {
-    "name": "Isaac Restrick",
-    "email": "isaac.restrick@gmail.com"
-  },
-  "license": "MIT",
-  "devDependencies": {
-    "@electron-forge/cli": "^7.10.2",
-    "@electron-forge/maker-deb": "^7.10.2",
-    "@electron-forge/maker-rpm": "^7.10.2",
-    "@electron-forge/maker-squirrel": "^7.10.2",
-    "@electron-forge/maker-zip": "^7.10.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
-    "@electron-forge/plugin-fuses": "^7.10.2",
-    "@electron-forge/plugin-webpack": "^7.10.2",
-    "@electron/fuses": "^1.8.0",
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "@typescript-eslint/parser": "^5.62.0",
-    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
-    "css-loader": "^6.11.0",
-    "electron": "39.2.7",
-    "eslint": "^8.57.1",
-    "eslint-plugin-import": "^2.32.0",
-    "fork-ts-checker-webpack-plugin": "^7.3.0",
-    "node-loader": "^2.1.0",
-    "style-loader": "^3.3.4",
-    "ts-loader": "^9.5.4",
-    "typescript": "^5.0.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@monaco-editor/react": "^4.6.0",
-    "@xterm/xterm": "^5.3.0",
-    "@xterm/addon-fit": "^0.10.0"
+    "@openai/agents": "^0.3.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
   }
 }
