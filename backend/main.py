@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from typing import Any
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.responses import Response
+
+from opus_computer import run_opus_task_in_container
 
 _BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(_BASE_DIR / ".env")
@@ -36,6 +40,18 @@ class EphemeralKeyResponse(BaseModel):
     session: dict[str, Any] | None = None
 
 
+class OpusComputerTaskRequest(BaseModel):
+    task: str = Field(min_length=1)
+    timeout_seconds: int = Field(default=600, ge=10, le=1800)
+    container: str | None = None
+    model: str | None = None
+    tool_version: str | None = None
+
+
+class OpusComputerTaskResponse(BaseModel):
+    output: str
+
+
 app = FastAPI(title="Realtime Ephemeral Key Backend")
 
 _cors_origins = [
@@ -58,6 +74,84 @@ app.add_middleware(
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _computer_demo_origin() -> str:
+    return os.getenv("COMPUTER_DEMO_ORIGIN", "http://localhost:8080").rstrip("/")
+
+
+@app.api_route("/computer", methods=["GET", "HEAD"])
+@app.api_route("/computer/{path:path}", methods=["GET", "HEAD"])
+async def proxy_computer_demo(request: Request, path: str = "") -> Response:
+    """
+    Best-effort reverse proxy to the computer-use-demo UI (usually running on port 8080).
+
+    This is intentionally minimal (GET/HEAD only) and is meant for local dev and demos.
+    """
+    upstream = _computer_demo_origin()
+    upstream_url = f"{upstream}/{path.lstrip('/')}"
+
+    # Forward a minimal set of headers.
+    forward_headers: dict[str, str] = {}
+    accept = request.headers.get("accept")
+    if accept:
+        forward_headers["accept"] = accept
+    user_agent = request.headers.get("user-agent")
+    if user_agent:
+        forward_headers["user-agent"] = user_agent
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        upstream_resp = await client.request(
+            method=request.method,
+            url=upstream_url,
+            params=dict(request.query_params),
+            headers=forward_headers,
+        )
+
+    # Copy response headers, excluding hop-by-hop headers.
+    hop_by_hop = {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    }
+    headers = {
+        k: v
+        for k, v in upstream_resp.headers.items()
+        if k.lower() not in hop_by_hop
+    }
+
+    return Response(
+        content=upstream_resp.content,
+        status_code=upstream_resp.status_code,
+        headers=headers,
+        media_type=upstream_resp.headers.get("content-type"),
+    )
+
+
+@app.post("/api/opus-computer/task", response_model=OpusComputerTaskResponse)
+async def opus_computer_task(body: OpusComputerTaskRequest) -> OpusComputerTaskResponse:
+    try:
+        output = await run_opus_task_in_container(
+            body.task,
+            timeout_seconds=body.timeout_seconds,
+            container=body.container,
+            model=body.model,
+            tool_version=body.tool_version,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail={"message": "Opus task timed out"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+    return OpusComputerTaskResponse(output=output)
 
 
 @app.post("/api/realtime/ephemeral-key", response_model=EphemeralKeyResponse)

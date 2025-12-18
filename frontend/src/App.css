@@ -1,7 +1,7 @@
 .app {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -124,8 +124,16 @@ button[disabled] {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 3fr 2fr;
   gap: 20px;
+}
+
+.panel--computer {
+  min-width: 0;
+}
+
+.panel--chat {
+  min-width: 0;
 }
 
 .screenPreview {
@@ -146,14 +154,30 @@ button[disabled] {
   object-fit: contain;
 }
 
+.computerFrame {
+  margin-top: 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #000;
+  height: 720px;
+}
+
+.computerFrame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .transcript {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 480px;
+  max-height: 600px;
   overflow: auto;
   padding: 4px 8px 4px 4px;
+  flex: 1;
 }
 
 .msg {
@@ -188,6 +212,10 @@ button[disabled] {
   border-color: rgba(170, 255, 200, 0.35);
 }
 
+.msg--tool {
+  border-color: rgba(255, 220, 120, 0.35);
+}
+
 .error {
   padding: 10px 12px;
   border-radius: 12px;
@@ -213,5 +241,9 @@ button[disabled] {
 @media (max-width: 920px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .computerFrame {
+    height: 520px;
   }
 }
