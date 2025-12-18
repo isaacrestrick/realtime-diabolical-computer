@@ -2,9 +2,11 @@ import {
   OpenAIRealtimeWebRTC,
   RealtimeAgent,
   RealtimeSession,
+  tool,
   type RealtimeItem,
 } from '@openai/agents/realtime'
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { z } from 'zod'
 import './App.css'
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
@@ -63,6 +65,46 @@ function stringifyUnknown(value: unknown): string {
   }
 }
 
+const opusComputerTaskTool = tool({
+  name: 'opus_computer_task',
+  description:
+    'Ask Claude Opus (running inside the embedded Computer Demo) to complete a task on that computer.',
+  parameters: z.object({
+    task: z.string(),
+    timeoutSeconds: z.number().int().min(10).max(1800).optional(),
+  }),
+  async execute({ task, timeoutSeconds }) {
+    const response = await fetch('/api/opus-computer/task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task,
+        timeout_seconds: timeoutSeconds ?? 600,
+      }),
+    })
+
+    let data: unknown = null
+    try {
+      data = await response.json()
+    } catch {
+      // Ignore JSON parse errors; we'll fall back to statusText.
+    }
+
+    if (!response.ok) {
+      const detail = isRecord(data) && 'detail' in data ? data['detail'] : data
+      throw new Error(
+        `Backend Opus task failed (${response.status}): ${stringifyUnknown(detail || response.statusText)}`,
+      )
+    }
+
+    if (!isRecord(data) || typeof data.output !== 'string') {
+      return stringifyUnknown(data)
+    }
+
+    return data.output
+  },
+})
+
 function formatError(caught: unknown): string {
   const message = stringifyUnknown(caught)
   const looksLikeBackendDown =
@@ -104,11 +146,13 @@ function getItemText(item: RealtimeItem): string {
   }
 
   if (item.type === 'function_call') {
-    return `${item.name}(${item.arguments})`
+    const output = item.output ? `\n\n${item.output}` : ''
+    return `${item.name}(${item.arguments})${output}`
   }
 
   if (item.type === 'mcp_call' || item.type === 'mcp_tool_call') {
-    return `${item.name}(${item.arguments})`
+    const output = item.output ? `\n\n${item.output}` : ''
+    return `${item.name}(${item.arguments})${output}`
   }
 
   return ''
@@ -144,10 +188,11 @@ function App() {
     return connectionStatus === 'disconnected' && !fetchingKey
   }, [connectionStatus, fetchingKey])
 
-  const messageHistory = useMemo(() => {
-    return history.filter(
-      (item): item is Extract<RealtimeItem, { type: 'message' }> => item.type === 'message',
-    )
+  const transcriptItems = useMemo(() => {
+    return history.filter((item) => {
+      const text = getItemText(item)
+      return typeof text === 'string' && text.trim().length > 0
+    })
   }, [history])
 
   const stopScreenShare = useCallback(() => {
@@ -210,7 +255,12 @@ function App() {
       const agent = new RealtimeAgent({
         name: 'screen-agent',
         instructions:
-          'You are a helpful assistant. The user may share screenshots of their screen (a stream of images). Use the latest screenshot(s) to answer questions about what they are seeing.',
+          'You are a helpful assistant.\n\n' +
+          'The user may share screenshots of their screen (a stream of images). Use the latest screenshot(s) to answer questions about what they are seeing.\n\n' +
+          'If the user asks you to do something on the embedded Computer Demo (the iframe), call `opus_computer_task` with a clear, self-contained task. ' +
+          'Do not output JSON pretending to be a tool call.\n\n' +
+          'After the tool completes, summarize what happened and what to do next.',
+        tools: [opusComputerTaskTool],
       })
 
       const transport = new OpenAIRealtimeWebRTC({
@@ -457,7 +507,65 @@ function App() {
       </section>
 
       <section className="grid">
-        <div className="panel">
+        <div className="panel panel--computer">
+          <h2>Computer Demo</h2>
+          <div className="subtle">
+            Proxied from the local computer-use-demo container via `backend` at `/computer/` (port
+            8080).
+          </div>
+          <div className="computerFrame">
+            <iframe
+              src="/computer/"
+              title="Computer Use Demo"
+              allow="fullscreen"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+
+        <div className="panel panel--chat">
+          <h2>Chat</h2>
+          <form className="row" onSubmit={sendText}>
+            <input
+              value={textMessage}
+              onChange={(e) => setTextMessage(e.target.value)}
+              placeholder={
+                connectionStatus === 'connected'
+                  ? 'Type a message…'
+                  : 'Connect first…'
+              }
+              disabled={connectionStatus !== 'connected'}
+            />
+            <button type="submit" disabled={connectionStatus !== 'connected'}>
+              Send
+            </button>
+          </form>
+
+          <h2>Transcript</h2>
+          <div className="transcript">
+            {transcriptItems.length === 0 ? (
+              <div className="subtle">No messages yet.</div>
+            ) : (
+              transcriptItems.map((item) => {
+                const text = getItemText(item)
+                if (!text) return null
+                const label = item.type === 'message' ? item.role : item.type
+                const className =
+                  item.type === 'message' ? `msg msg--${item.role}` : 'msg msg--tool'
+                return (
+                  <div key={item.itemId} className={className}>
+                    <div className="msgRole">{label}</div>
+                    <pre className="msgText">{text}</pre>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </section>
+
+      {false && (
+        <section className="panel">
           <h2>Screen</h2>
           <div className="row">
             <button disabled={screenSharing} onClick={() => void startScreenShare()}>
@@ -481,50 +589,13 @@ function App() {
               ? 'Not sharing.'
               : connectionStatus !== 'connected'
                 ? 'Sharing preview (connect to send screenshots to the model).'
-                : `Sends a screenshot when you start speaking, when you send a chat message, or when you click “Send Screenshot”${lastScreenshotAt ? ` (last: ${lastScreenshotAt.toLocaleTimeString()})` : ''}.`}
+                : `Sends a screenshot when you start speaking, when you send a chat message, or when you click "Send Screenshot"${lastScreenshotAt ? ` (last: ${lastScreenshotAt.toLocaleTimeString()})` : ''}.`}
           </div>
           <div className="screenPreview">
             <video ref={screenVideoRef} autoPlay playsInline muted />
           </div>
-        </div>
-
-        <div className="panel">
-          <h2>Chat</h2>
-          <form className="row" onSubmit={sendText}>
-            <input
-              value={textMessage}
-              onChange={(e) => setTextMessage(e.target.value)}
-              placeholder={
-                connectionStatus === 'connected'
-                  ? 'Type a message…'
-                  : 'Connect first…'
-              }
-              disabled={connectionStatus !== 'connected'}
-            />
-            <button type="submit" disabled={connectionStatus !== 'connected'}>
-              Send
-            </button>
-          </form>
-
-          <h2>Transcript</h2>
-          <div className="transcript">
-            {messageHistory.length === 0 ? (
-              <div className="subtle">No messages yet.</div>
-            ) : (
-              messageHistory.map((item) => {
-                const text = getItemText(item)
-                if (!text) return null
-                return (
-                  <div key={item.itemId} className={`msg msg--${item.role}`}>
-                    <div className="msgRole">{item.role}</div>
-                    <pre className="msgText">{text}</pre>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <details className="panel">
         <summary>Transport events ({eventTypes.length})</summary>

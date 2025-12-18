@@ -2,6 +2,28 @@
 
 Realtime Computer Using Agent(s)
 
+## Computer Use Demo (port 8080)
+
+This repo includes Anthropic's `computer-use-demo` (under `computer/`). The backend proxies the demo UI at `/computer/`, and the frontend embeds it.
+
+If you want the OpenAI Realtime model to delegate “do something on the computer” tasks to Claude Opus, you also need:
+
+- the computer-use-demo container running locally, and
+- the FastAPI backend running locally (it exposes an HTTP endpoint that the Realtime function tool calls).
+
+Start the demo container:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-key"
+docker run \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  -p 5900:5900 \
+  -p 6080:6080 \
+  -p 8501:8501 \
+  -p 8080:8080 \
+  -it ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
+```
+
 ## Frontend
 
 A minimal Vite + React + TypeScript frontend for interacting with OpenAI's Realtime API with screen sharing capabilities.
@@ -75,7 +97,16 @@ The script prints the ephemeral `value` (starts with `ek_...`). The demo UI mint
 
 ### Usage
 
-1. Start the backend and frontend dev servers
-2. In the app, click "Connect"
-3. Click "Share Screen" to let the assistant see your screen
-4. Speak or type to interact with the assistant
+1. Start the computer-use-demo container (port 8080)
+2. Start the backend and frontend dev servers
+3. In the app, click "Connect"
+4. (Optional) Click "Share Screen" to let the assistant see your screen
+5. Speak or type to interact with the assistant
+
+### Opus tool call (local function tool)
+
+The UI registers a Realtime function tool named `opus_computer_task`. When the model calls it, your browser makes a local HTTP request to the backend:
+
+- `POST /api/opus-computer/task`
+
+This avoids the “hosted MCP must be publicly reachable” limitation and should work fully locally, as long as the backend + computer-use-demo container are running.
